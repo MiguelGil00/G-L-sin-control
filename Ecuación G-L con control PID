@@ -1,0 +1,94 @@
+%PID%
+
+
+%Definimos las variables de las que dependen nuestras constantes v,? y ?.
+U =12;
+cu=0.2;
+cd=-1;
+mu0=5;
+
+v=U+2*1j.*cu;
+gamma=1+1j.*cd;
+mu= mu0-cu^2;
+
+
+%Definimos los valores de las constantes
+Kd = 3;
+Kp = 3;
+Ki = 1;
+%Declaramos las variables con las que vamos a realizar el script
+N=128;
+M=10000;
+h=0.00001;
+x = linspace(0,1,N);
+y = sin(x);
+%Ahora declaramos las matrices donde se guardarán los vectores que
+%necesitamos en sus respectivas filas
+
+RES= zeros(M/100,N);
+dy= zeros(M/100,N);
+
+%Una vez declaradas, trabajamos con la condicion inicial
+T=fft(y);
+k=0:N-1;
+k=fftshift(k)-(N/2);
+
+%Calculamos las matrices para hacer Ricati
+B = zeros(N,1);
+B((N/2),1)=1;
+B=fft(B);
+Cz = zeros(N,1);
+Cz(N,1)=1;
+Cz=fft(Cz);
+I(1)=0;
+for i=1:1:M
+    I(i+1)=I(i)+PHS(T)*Cz;
+end
+
+%Hacemos RK4
+
+PHS= @(fx) 2*pi*1j.*k.*fx;
+RHS = @(fx) 2*pi*1j.*k.*2*pi*1j.*k.*fx;
+dyhat1=(-v*PHS(T)+gamma*RHS(T)+mu*T)+transpose(B*(Kp*(Cz.'*T.')+Kd*(PHS(T)*Cz)+Ki*I(1))); %C1
+A1= T+0.5*h*dyhat1;
+A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1)+transpose(B*(Kp*(Cz.'*A1.')+Kd*(PHS(A1)*Cz)+Ki*I(1))); %C2
+B1= T+0.5*h*A2;
+B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1)+transpose(B*(Kp*(Cz.'*B1.')+Kd*(PHS(B1)*Cz)+Ki*I(1)));%C3
+C1= T+h*B2;
+C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1)+transpose(B*(Kp*(Cz.'*C1.')+Kd*(PHS(C1)*Cz)+Ki*I(1)));%C4
+
+%Con el siguiente bucle llevamos a cabo RK para el calculo de la matriz T
+
+
+for i=2:1:M
+    T = T+(h/6)*(dyhat1+2*A2+2*B2+C2);
+    dyhat1=-v*PHS(T)+gamma*RHS(T)+mu*T+transpose(B*(Kp*(Cz.'*T.')+Kd*(PHS(T)*Cz)+Ki*I(i))); %C1
+    A1= T+0.5*h*dyhat1;
+    A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1)+transpose(B*(Kp*(Cz.'*A1.')+Kd*(PHS(A1)*Cz)+Ki*I(i))); %C2
+    B1= T+0.5*h*A2;
+    B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1)+transpose(B*(Kp*(Cz.'*B1.')+Kd*(PHS(B1)*Cz)+Ki*I(i)));%C3
+    C1= T+h*B2;
+    C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1)+transpose(B*(Kp*(Cz.'*C1.')+Kd*(PHS(C1)*Cz)+Ki*I(i)));%C4
+   if mod(i,M/100)==0  
+       RES(i/100,:)=T;
+   end
+end
+%Ahora hacemos otro bucle que recoja la inversa de la transformada de
+%fourier que es la que nos interesa
+
+for i=1:1:M/100
+    dy(i,:) = ifft(RES(i,:));
+end
+t = (1:M/100:M)*h
+h = surf(x,t, real(dy))
+
+set(h, 'EdgeColor', 'none')
+title('Control en x=0 de una configuración estable');
+xlabel('x');
+ylabel('t');
+zlabel('q');
+
+plot(abs(dy(:,N/2)),'o')
+ylabel('|q|');
+xlabel('t')
+title('Control en x=1 de una configuración absolutamente inestable');
