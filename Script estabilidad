@@ -1,0 +1,16 @@
+mu=linspace(-10,30,20);
+u=linspace(-15,15,20);
+I=zeros(1,2);
+for i=1:1:20
+    for j=1:1:20
+        [t,Q]=cc(u(i),0.2,-1,mu(j))
+        if Q(100,1)>15000
+            pos=size(I,1);
+            I(pos+1,1)=u(i)
+            I(pos+1,2)=mu(j)
+           
+        end
+    end
+end
+I(1,:)=[]
+plot(I(:,2),I(:,1),'r')
