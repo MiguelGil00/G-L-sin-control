@@ -1,0 +1,65 @@
+%ECUACIÓN DE CALOR
+%ut = alpha*uxx
+%u(0,t)= u(pi,t)=0
+%u(x,0)=sen x
+
+%Declaramos las variables con las que vamos a realizar el script
+N=128;
+M=10000;
+h=0.00001;
+x = linspace(0,pi,N);
+y = sin(x);
+%Ahora declaramos las matrices donde se guardarán los vectores que
+%necesitamos en sus respectivas filas
+P=zeros(M,N);
+T = zeros(M,N);
+A = zeros(M,N);
+B = zeros(M,N);
+C = zeros(M,N);
+dyhat = zeros(M,N);
+dyhat1 = zeros(M,N);
+A1 = zeros(M,N);
+A2 = zeros(M,N);
+B1 = zeros(M,N);
+B2 = zeros(M,N);
+C1 = zeros(M,N);
+C2 = zeros(M,N);
+dy = zeros(M,N);
+%Una vez declaradas, trabajamos con la condicion inicial
+T(1,:)=fft(y);
+k=0:N-1;
+k=fftshift(k)-(N/2);
+
+RHS = @(fx) pi*pi*1j.*k.*1j.*k.*fx;
+i=1
+dyhat1(i,:)=RHS(T(i,:)); %C1
+A(i,:)= T(i,:)+0.5*h*dyhat1(i,:);
+A2(i,:)=RHS(A(i,:)); %C2
+B(i,:)= T(i,:)+0.5*h*A2(i,:);
+B2(i,:)=RHS(B(i,:));%C3
+C(i,:)= T(i,:)+h*B2(i,:);
+C2(i,:)=RHS(C(i,:));%C4
+
+%Con el siguiente bucle llevamos a cabo RK para el calculo de la matriz T
+
+
+
+for i=2:1:M
+    T(i,:) = T(i-1,:)+(h/6)*(dyhat1(i-1,:)+2*A2(i-1,:)+2*B2(i-1,:)+C2(i-1,:));
+    dyhat1(i,:)=RHS(T(i,:)); %C1
+    A(i,:)= T(i,:)+0.5*h*dyhat1(i,:);
+    A2(i,:)=RHS(A(i,:)); %C2
+    B(i,:)= T(i,:)+0.5*h*A2(i,:);
+    B2(i,:)=RHS(B(i,:));%C3
+    C(i,:)= T(i,:)+h*B2(i,:);
+    C2(i,:)=RHS(C(i,:));%C4
+end
+%Ahora hacemos otro bucle que recoja la inversa de la transformada de
+%fourier que es la que nos interesa
+
+for i=1:1:M
+    dy(i,:) = ifft(T(i,:));
+end
+t = (1:M)*h
+h = pcolor(x,t, real(dy))
+set(h, 'EdgeColor', 'none');
