@@ -1,0 +1,91 @@
+function [dy]=sc(U,cu,cd,mu0)
+
+%RICATI%
+
+%Definimos las variables de las que dependen nuestras constantes v,? y ?.
+
+
+%Definimos los valores de las constantes
+v=U+2*1j.*cu;
+gamma=1+1j.*cd;
+mu= mu0-cu^2;
+
+%Declaramos las variables con las que vamos a realizar el script
+N=128;
+M=10000;
+h=0.00001;
+x = linspace(0,1,N);
+y = sin(x);
+%Ahora declaramos las matrices donde se guardarán los vectores que
+%necesitamos en sus respectivas filas
+
+RES= zeros(M/100,N);
+dy= zeros(M/100,N);
+
+%Una vez declaradas, trabajamos con la condicion inicial
+T=fft(y);
+k=0:N-1;
+k=fftshift(k)-(N/2);
+
+%Calculamos las matrices para hacer Ricati
+B = zeros(N,1);
+B((N/N),1)=1;
+B=fft(B);
+R = 0.01*eye(1);
+fft(R);
+Q = eye(N);
+Q=fft(Q);
+AP=(-v*2*pi*1j.*k)+(gamma*2*pi*1j.*k.*2*pi*1j.*k)+mu;
+A=diag(AP);
+
+[X1,K1,L1] = icare(A,B,Q,R,[],[],[]);
+
+K = inv(R)*(B.'*X1);
+
+%Hacemos RK4
+
+PHS= @(fx) 2*pi*1j.*k.*fx;
+RHS = @(fx) 2*pi*1j.*k.*2*pi*1j.*k.*fx;
+i=1
+dyhat1=-v*PHS(T)+gamma*RHS(T)+mu*T; %C1
+A1= T+0.5*h*dyhat1;
+A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1); %C2
+B1= T+0.5*h*A2;
+B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1);%C3
+C1= T+h*B2;
+C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1);%C4
+
+%Con el siguiente bucle llevamos a cabo RK para el calculo de la matriz T
+
+
+for i=2:1:M
+    T = T+(h/6)*(dyhat1+2*A2+2*B2+C2);
+    dyhat1=-v*PHS(T)+gamma*RHS(T)+mu*T; %C1
+    A1= T+0.5*h*dyhat1;
+    A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1); %C2
+    B1= T+0.5*h*A2;
+    B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1);%C3
+    C1= T+h*B2;
+    C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1);%C4
+   if mod(i,M/100)==0  
+       RES(i/100,:)=T;
+   end
+end
+
+%Ahora hacemos otro bucle que recoja la inversa de la transformada de
+%fourier que es la que nos interesa
+
+for i=1:1:M/100
+    dy(i,:) = ifft(RES(i,:));
+end
+t = (1:M/100:M)*h
+h = surf(x,t, real(dy))
+set(h, 'EdgeColor', 'none')
+
+plot(abs(dy(:,N)))
+title('SIN CONTROL');
+ylabel('|q|');
+xlabel('t')
+
+
+end
