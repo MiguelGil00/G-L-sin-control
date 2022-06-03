@@ -1,0 +1,111 @@
+function[uu,Bw,w]=estimacion(U,cu,cd,mu0)
+
+[u1,yy1,K,Cz]=cc(3,0.2,-1,12)
+
+%Definimos las variables de las que dependen nuestras constantes v,? y ?.
+
+
+
+%Definimos los valores de las constantes
+v=U+2*1j.*cu;
+gamma=1+1j.*cd;
+mu= mu0-cu^2;
+
+%Declaramos las variables con las que vamos a realizar el script
+N=128;
+M=10000;
+h=0.00001;
+x = linspace(0,1,N);
+y = sin(x);
+%Ahora declaramos las matrices donde se guardarán los vectores que
+%necesitamos en sus respectivas filas
+
+RES= zeros(M/100,N);
+dy= zeros(M/100,N);
+
+%Una vez declaradas, trabajamos con la condicion inicial
+T=fft(y);
+k=0:N-1;
+k=fftshift(k)-(N/2);
+
+%Calculamos las matrices para hacer Ricati
+B = zeros(N,1);
+B((N/2),1)=1;
+B=fft(B);
+Bw = zeros(N,1);
+Bw(N/N,1)=1;
+Bw=fft(Bw);
+w=0.01;
+w=fft(w)
+g=0.01;
+g = fft(g)
+W = 0.01*0.01;
+G = 0.01 * 0.01;
+Q = Bw*W*Bw.';
+Q=fft(Q);
+AP=(-v*2*pi*1j.*k)+(gamma*2*pi*1j.*k.*2*pi*1j.*k)+mu;
+A=diag(AP);
+
+[X1,K1,L1] = icare(A,Cz,Q,G,[],[],[]);
+
+L = inv(G)*(Cz.'*X1);
+
+
+%Hacemos RK4
+
+PHS= @(fx) 2*pi*1j.*k.*fx;
+RHS = @(fx) 2*pi*1j.*k.*2*pi*1j.*k.*fx;
+
+dyhat1=(-v*PHS(T)+gamma*RHS(T)+mu*T)+B.'*u1(1)+L*(yy1(1)-transpose(Cz)*T.'); %C1
+A1= T+0.5*h*dyhat1;
+A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1)+B.'*u1(1)+L*(yy1(1)-transpose(Cz)*A1.'); %C2
+B1= T+0.5*h*A2;
+B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1)+B.'*u1(1)+L*(yy1(1)-transpose(Cz)*B1.');%C3
+C1= T+h*B2;
+C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1)+B.'*u1(1)+L*(yy1(1)-transpose(Cz)*C1.');%C4
+
+%Con el siguiente bucle llevamos a cabo RK para el calculo de la matriz T
+
+
+for i=M/100:M/100:M
+    for j=2:1:M/100
+    T = T+(h/6)*(dyhat1+2*A2+2*B2+C2);
+    dyhat1=(-v*PHS(T)+gamma*RHS(T)+mu*T)+B.'*u1(j)+L*(yy1(j)-transpose(Cz)*T.'); %C1
+    A1= T+0.5*h*dyhat1;
+    A2=-v*PHS(A1)+gamma*RHS(A1)+mu*(A1)+B.'*u1(j)+L*(yy1(j)-transpose(Cz)*A1.'); %C2
+    B1= T+0.5*h*A2;
+    B2=-v*PHS(B1)+gamma*RHS(B1)+mu*(B1)+B.'*u1(j)+L*(yy1(j)-transpose(Cz)*B1.');%C3
+    C1= T+h*B2;
+    C2=-v*PHS(C1)+gamma*RHS(C1)+mu*(C1)+B.'*u1(j)+L*(yy1(j)-transpose(Cz)*C1.');%C4
+    end
+ 
+       RES(i/100,:)=T;
+  
+end
+%Ahora hacemos otro bucle que recoja la inversa de la transformada de
+%fourier que es la que nos interesa
+
+for i=1:1:M/100
+    dy(i,:) = ifft(RES(i,:));
+end
+
+t = (1:M/100:M)*h
+h = surf(x,t, real(dy))
+
+set(h, 'EdgeColor', 'none')
+title('Control en x=0 de una configuración estable');
+xlabel('x');
+ylabel('t');
+zlabel('q̂');
+
+plot(abs(dy(:,N/N)))
+ylabel('̂q');
+xlabel('t')
+title('Control en x=1 de una configuración absolutamente inestable');
+
+uu = zeros(M/100,1);
+for i=1:1:M/100
+uu(i,:) = -K*transpose(RES(i,:));
+end
+
+end
